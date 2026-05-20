@@ -585,16 +585,16 @@ export default function App() {
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-3">How it works</h2>
             <ol className="space-y-3 text-sm text-slate-700 list-decimal list-inside">
-              <li><strong>Email comes in.</strong> Just the subject and body — plain text, nothing fancy.</li>
+              <li><strong>Email comes in.</strong> Just the subject and body, plain text, nothing fancy.</li>
               <li><strong>One model call does the heavy lifting.</strong> The email goes to Llama 3.3 70B (via Groq) with a prompt that asks for a category, any useful fields pulled from the text (name, contact, product or serial number, location), and a one-line reason for the decision. It all comes back as a single JSON blob.</li>
-              <li><strong>The response gets validated.</strong> If the model returns something malformed, it gets one retry. If that also fails, the email is marked <code className="bg-slate-100 px-1 rounded">Unclear</code> with confidence 0 and the batch keeps going — nothing blows up.</li>
+              <li><strong>The response gets validated.</strong> If the model returns something malformed, it gets one retry. If that also fails, the email is marked <code className="bg-slate-100 px-1 rounded">Unclear</code> with confidence 0 and the batch keeps going. Nothing blows up.</li>
               <li><strong>Routing happens based on category.</strong> Each category maps to a destination: Sales, Service, an ops alert, or a human review queue. Urgent escalations get an extra alert on top. Anything the model isn't confident about gets flagged for a human even if it was given a category.</li>
-              <li><strong>Sales emails get a draft reply.</strong> For Product Enquiries and Quote Follow-ups, a second model call writes a short acknowledgement that references whatever product or quote number was mentioned. Service and urgent emails don't get auto-replies — those need a real person.</li>
+              <li><strong>Sales emails get a draft reply.</strong> For Product Enquiries and Quote Follow-ups, a second model call writes a short acknowledgement that references whatever product or quote number was mentioned. Service and urgent emails don't get auto-replies. Those need a real person.</li>
             </ol>
 
             <h3 className="text-base font-semibold text-slate-900 mt-6 mb-2">About the confidence score</h3>
             <p className="text-sm text-slate-700">
-              The model gives itself a confidence score from 0 to 1, but in practice it almost always picks something like 0.9 or 0.95 — so showing a precise percentage would be misleading. Instead the UI groups scores into three buckets: <strong>High</strong> (≥ 0.85), <strong>Medium</strong> (0.6 – 0.85), and <strong>Low — review</strong> (below 0.6). The raw number is still there in small text if you want to see it. Anything under 0.6 gets routed for human review regardless of what category was assigned.
+              The model gives itself a confidence score from 0 to 1, but in practice it almost always picks something like 0.9 or 0.95, so showing a precise percentage would be misleading. Instead the UI groups scores into three buckets: <strong>High</strong> (0.85 and above), <strong>Medium</strong> (0.6 to 0.85), and <strong>Low, needs review</strong> (below 0.6). The raw number is still there in small text if you want to see it. Anything under 0.6 gets routed for human review regardless of what category was assigned.
             </p>
 
             <h3 className="text-base font-semibold text-slate-900 mt-6 mb-2">Categories and routing</h3>
@@ -619,7 +619,7 @@ export default function App() {
             <p className="text-sm text-slate-700">
               Backend: Python, FastAPI, Groq SDK, Pydantic, Llama 3.3 70B.
               Frontend: React, Vite, Tailwind CSS.
-              No agent framework — the pipeline is straightforward enough that adding one would've just been extra complexity for no gain.
+              No agent framework. The pipeline is straightforward enough that adding one would've just been extra complexity for no gain.
             </p>
           </Card>
         )}

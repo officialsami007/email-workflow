@@ -2,18 +2,25 @@
 
 Inbound customer emails for an industrial equipment distributor get classified, key fields extracted, routed to the right team, and (for sales-side enquiries) a short draft reply generated.
 
-I built three versions of the same pipeline. Submit whichever fits the role — they all share the same logic and produce the same JSON shape.
+Two implementations of the same pipeline, sharing one core. Submit whichever fits the role — they produce identical JSON.
 
-| Version              | Folder                     | What it shows                              |
-| -------------------- | -------------------------- | ------------------------------------------ |
-| Python CLI           | `backend/`                 | Core pipeline, structured output, retries  |
-| React UI + FastAPI   | `backend/` + `frontend/`   | Same logic with a clean demo interface     |
-| n8n no-code workflow | `n8n/`                     | Same logic as a visual automation          |
+| Version             | Folder                     | What it shows                              |
+| ------------------- | -------------------------- | ------------------------------------------ |
+| Python CLI          | `backend/`                 | Core pipeline, structured output, retries  |
+| React UI + FastAPI  | `backend/` + `frontend/`   | Same logic with a clean demo interface     |
 
 
-## Running it
+## Live demo
 
-### Python + React UI (recommended for the demo)
+- **App:** https://email-workflow-ten.vercel.app
+- **Backend health check:** https://email-workflow-5tfp.onrender.com/api/health
+
+Frontend on Vercel, FastAPI backend on Render. Render's free tier sleeps the service after 15 minutes of inactivity, so the first request after a quiet stretch can take 30-40 seconds to wake the container. Anything after that responds normally.
+
+
+## Running it locally
+
+### Python + React UI
 
 Two terminals.
 
@@ -36,6 +43,12 @@ npm run dev
 
 Open http://localhost:5173. If the key is set you'll see "Backend ready" and can either run the 5 test emails or paste your own. Free Groq key: https://console.groq.com.
 
+By default the frontend points at `http://localhost:8000`. To point it at the remote backend instead, create `frontend/.env.local` with:
+
+```
+VITE_API_BASE=https://email-workflow-5tfp.onrender.com
+```
+
 ### Python only (no UI)
 
 ```bash
@@ -48,9 +61,21 @@ python workflow.py
 
 Prints a summary and writes `output.json`. CLI and server read the same `.env`.
 
-### n8n version
 
-`n8n/README.md` has the full walkthrough. Short version: run n8n in Docker, import the workflow JSON, add the Groq credential, activate, hit the webhook.
+## Deployment notes
+
+Frontend on Vercel:
+- Root directory: `frontend`
+- Framework auto-detected as Vite
+- Environment variable: `VITE_API_BASE=https://email-workflow-5tfp.onrender.com`
+
+Backend on Render:
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn server:app --host 0.0.0.0 --port $PORT`
+- Environment variable: `GROQ_API_KEY=...`
+
+`backend/server.py` whitelists the Vercel domain in CORS so the deployed frontend can call the deployed backend cross-origin.
 
 
 ## What's in each file
@@ -75,7 +100,7 @@ Thin FastAPI wrapper around `workflow.py`. Three endpoints:
 - `GET /api/samples` — returns the 5 test emails.
 - `POST /api/classify` — takes a list of emails, runs `process_one` on each, returns results.
 
-CORS is set up for the Vite dev server (5173).
+CORS is set up for the Vite dev server (5173) and the Vercel domain.
 
 ### `backend/emails.json`
 The 5 assessment test emails. Each has `id`, `subject`, `body`.
@@ -107,25 +132,13 @@ The whole UI in one file — easier to read top to bottom than splitting it up f
   2. **Paste your own email** — textarea + 8 click-to-load samples covering all categories plus edge cases.
   3. **How it works** — explanation, routing table, stack.
 
+API base URL is read from `import.meta.env.VITE_API_BASE` with a fallback to `http://localhost:8000`, so the same build runs against local or production with no code changes.
+
 ### `frontend/src/index.css`
 Tailwind base + body font.
 
 ### `frontend/vite.config.js`, `tailwind.config.js`, `postcss.config.js`
 Stock Vite + Tailwind configs. Nothing custom.
-
-### `n8n/email-triage-workflow.json`
-The n8n workflow as importable JSON. 10 nodes:
-
-1. Webhook (receives the email)
-2. Groq HTTP request — classification
-3. Code node — parses + validates + builds the routing decision
-4. Switch — branches by category
-5-8. Four branches: urgent alert, sales draft, service ticket, human review
-9. Second Groq HTTP request — draft reply (sales branch only)
-10. Respond — sends the final JSON back
-
-### `n8n/README.md`
-Import + Groq credential setup + how to test it with curl.
 
 
 ## Categories
@@ -148,18 +161,19 @@ Import + Groq credential setup + how to test it with curl.
 - **Per-email try/except.** One bad email doesn't stop the batch.
 - **No agent framework.** Pipeline is linear — LangChain or LangGraph would add overhead without value. Same logic would port directly if the workflow grew to multi-step chains.
 
+I also built an equivalent n8n version of this workflow as a no-code demonstration — same logic, visual canvas. It runs in a local n8n instance and isn't checked in here since it's tied to the local container's credentials and webhook routes. Happy to walk through it in a follow-up call.
+
 
 ## On API keys
 
-The Groq key sits in `backend/.env`, which is gitignored. The frontend never sees the key — it just calls the backend, which uses the key server-side. The app doesn't ask for your personal email anywhere; "email" in the code refers to the customer emails being processed.
+The Groq key sits in `backend/.env` locally and as an env var on Render in production. Either way it's server-side only — the frontend never sees the key, it just calls the backend, which uses the key. The app doesn't ask for your personal email anywhere; "email" in the code refers to the customer emails being processed.
 
 
 ## File tree
 
 ```
-sami-email-workflow/
+email-workflow/
 ├── README.md                          ← this file
-├── WRITEUP.md                         ← 1-page write-up
 ├── .gitignore                         ← keeps .env out of git
 ├── backend/
 │   ├── workflow.py                    ← core pipeline
@@ -168,17 +182,14 @@ sami-email-workflow/
 │   ├── output.json                    ← results (regenerated on run)
 │   ├── .env.example                   ← copy to .env, add your key
 │   └── requirements.txt
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   ├── index.html
-│   └── src/
-│       ├── main.jsx                   ← React entry
-│       ├── App.jsx                    ← the whole UI
-│       └── index.css                  ← Tailwind base
-└── n8n/
-    ├── email-triage-workflow.json     ← importable n8n workflow
-    └── README.md                      ← n8n setup steps
+└── frontend/
+    ├── package.json
+    ├── vite.config.js
+    ├── tailwind.config.js
+    ├── postcss.config.js
+    ├── index.html
+    └── src/
+        ├── main.jsx                   ← React entry
+        ├── App.jsx                    ← the whole UI
+        └── index.css                  ← Tailwind base
 ```

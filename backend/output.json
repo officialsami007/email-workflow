@@ -1,0 +1,139 @@
+[
+  {
+    "id": "email_1",
+    "subject": "Product availability enquiry",
+    "body": "Hi, we're looking for a Fitting – SS, Male Elbow, 1/2in. Can you advise on availability and lead time?",
+    "processed_at": "2026-05-20T05:29:18+00:00",
+    "classification": {
+      "category": "Product Enquiry",
+      "confidence": 0.9,
+      "reasoning": "The customer is asking about availability and lead time for a specific product.",
+      "fields": {
+        "customer_name": null,
+        "contact_number": null,
+        "product_or_serial": "Fitting – SS, Male Elbow, 1/2in",
+        "location": null,
+        "urgency": "low"
+      }
+    },
+    "routing": {
+      "destination": "sales-team@distributor.local",
+      "channel": "#sales-inbox",
+      "actions": [
+        "Forwarded to sales-team@distributor.local (Slack #sales-inbox)"
+      ]
+    },
+    "draft_reply": "We have received your inquiry regarding the Fitting – SS, Male Elbow, 1/2in and appreciate your interest in our products. We will review your request and assess the availability of the specified item. Our team will be in touch with you shortly to discuss further details and provide an update on the next steps. We appreciate your patience and look forward to responding to your inquiry.\n\nSales Team",
+    "status": "ok"
+  },
+  {
+    "id": "email_2",
+    "subject": "Technician required - Penang",
+    "body": "Our gauge installed last year is showing inconsistent readings. Serial number FC-2291. We need a technician on site ASAP, based in Penang.",
+    "processed_at": "2026-05-20T05:29:19+00:00",
+    "classification": {
+      "category": "Urgent Escalation",
+      "confidence": 0.9,
+      "reasoning": "The customer explicitly states 'ASAP' and reports an issue with their gauge, indicating a production-impacting problem.",
+      "fields": {
+        "customer_name": null,
+        "contact_number": null,
+        "product_or_serial": "FC-2291",
+        "location": "Penang",
+        "urgency": "high"
+      }
+    },
+    "routing": {
+      "destination": "ops-alerts@distributor.local",
+      "channel": "#ops-critical",
+      "actions": [
+        "PRIORITY=HIGH alert sent to ops-alerts@distributor.local",
+        "Slack #ops-critical pinged with @oncall"
+      ]
+    },
+    "draft_reply": null,
+    "status": "ok"
+  },
+  {
+    "id": "email_3",
+    "subject": "Re: Quote QT-4821",
+    "body": "Just following up on quote QT-4821 we received 2 weeks ago. Has pricing changed? We're ready to proceed.",
+    "processed_at": "2026-05-20T05:29:19+00:00",
+    "classification": {
+      "category": "Quote Follow-up",
+      "confidence": 0.9,
+      "reasoning": "The customer mentions a specific quote number and asks if pricing has changed.",
+      "fields": {
+        "customer_name": null,
+        "contact_number": null,
+        "product_or_serial": "QT-4821",
+        "location": null,
+        "urgency": "low"
+      }
+    },
+    "routing": {
+      "destination": "sales-team@distributor.local",
+      "channel": "#sales-inbox",
+      "actions": [
+        "Forwarded to sales-team@distributor.local (Slack #sales-inbox)"
+      ]
+    },
+    "draft_reply": "We have received your follow-up email regarding quote QT-4821 and appreciate your interest in proceeding. We will review the current status of your quote and assess any potential changes. A member of our team will be in touch with you shortly to discuss the next steps and provide an update on your quote. We look forward to speaking with you soon.\n\nSales Team",
+    "status": "ok"
+  },
+  {
+    "id": "email_4",
+    "subject": "(no subject)",
+    "body": "Hello please call me back regarding your products thanks",
+    "processed_at": "2026-05-20T05:29:20+00:00",
+    "classification": {
+      "category": "Unclear",
+      "confidence": 0.3,
+      "reasoning": "The email lacks specific product information or a clear ask",
+      "fields": {
+        "customer_name": null,
+        "contact_number": null,
+        "product_or_serial": null,
+        "location": null,
+        "urgency": "low"
+      }
+    },
+    "routing": {
+      "destination": "human-review@distributor.local",
+      "channel": "#triage-queue",
+      "actions": [
+        "Queued for human review at human-review@distributor.local"
+      ]
+    },
+    "draft_reply": null,
+    "status": "ok"
+  },
+  {
+    "id": "email_5",
+    "subject": "URGENT - production line down",
+    "body": "URGENT — production line down. The pressure relief valve you supplied last month has failed. Need emergency replacement or technician TODAY. Contact: Ahmad, 012-3456789",
+    "processed_at": "2026-05-20T05:29:21+00:00",
+    "classification": {
+      "category": "Urgent Escalation",
+      "confidence": 0.99,
+      "reasoning": "The email contains explicit emergency language and mentions a production-impacting failure",
+      "fields": {
+        "customer_name": "Ahmad",
+        "contact_number": "012-3456789",
+        "product_or_serial": "pressure relief valve",
+        "location": null,
+        "urgency": "critical"
+      }
+    },
+    "routing": {
+      "destination": "ops-alerts@distributor.local",
+      "channel": "#ops-critical",
+      "actions": [
+        "PRIORITY=HIGH alert sent to ops-alerts@distributor.local",
+        "Slack #ops-critical pinged with @oncall"
+      ]
+    },
+    "draft_reply": null,
+    "status": "ok"
+  }
+]

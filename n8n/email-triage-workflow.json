@@ -1,0 +1,270 @@
+{
+  "name": "AI Email Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-triage",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (Email In)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 400],
+      "webhookId": "email-triage-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0.1,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You triage inbound customer emails for an industrial equipment distributor serving oil & gas and semiconductor customers in Southeast Asia.\\n\\nClassify the email into exactly ONE category:\\n- 'Product Enquiry': customer asking about availability, lead time, specs, or pricing of a product they want to buy.\\n- 'Service Request': customer needs a technician, repair, calibration, or on-site work for equipment already in their facility.\\n- 'Urgent Escalation': production-impacting failure, downtime, or explicit emergency language. Beats Service Request when both could apply.\\n- 'Quote Follow-up': customer is chasing or referencing a prior quote.\\n- 'Unclear': message is too vague. Do NOT guess just to look helpful.\\n\\nExtract: customer_name, contact_number, product_or_serial, location, urgency (low|medium|high|critical). Use null if not present, never invent.\\n\\nReturn ONLY a JSON object: {\\\"category\\\": \\\"...\\\", \\\"confidence\\\": 0.0-1.0, \\\"reasoning\\\": \\\"one short sentence\\\", \\\"fields\\\": {\\\"customer_name\\\": null, \\\"contact_number\\\": null, \\\"product_or_serial\\\": null, \\\"location\\\": null, \\\"urgency\\\": \\\"low\\\"}}\\n\\nRules: confidence < 0.6 means human review even if category assigned. 'Unclear' should have confidence < 0.5. Do not classify as Product Enquiry just because email mentions 'products'.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.body.body\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "id": "groq-classify",
+      "name": "Groq: Classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "groq-api-key",
+          "name": "Groq API Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the Groq response and normalise.\n// Falls back to 'Unclear' if JSON parse fails - matches the Python pipeline's behaviour.\nconst input = $input.first().json;\nconst originalEmail = $('Webhook (Email In)').first().json.body;\n\nlet classification;\ntry {\n  const content = input.choices[0].message.content;\n  classification = JSON.parse(content);\n} catch (e) {\n  classification = {\n    category: 'Unclear',\n    confidence: 0.0,\n    reasoning: `Failed to parse model output: ${e.message}`,\n    fields: { customer_name: null, contact_number: null, product_or_serial: null, location: null, urgency: 'low' }\n  };\n}\n\n// Build routing decision\nconst routes = {\n  'Product Enquiry':   { to: 'sales-team@distributor.local',   channel: '#sales-inbox' },\n  'Service Request':   { to: 'service-team@distributor.local', channel: '#service-tickets' },\n  'Quote Follow-up':   { to: 'sales-team@distributor.local',   channel: '#sales-inbox' },\n  'Urgent Escalation': { to: 'ops-alerts@distributor.local',   channel: '#ops-critical' },\n  'Unclear':           { to: 'human-review@distributor.local', channel: '#triage-queue' },\n};\nconst target = routes[classification.category] || routes['Unclear'];\n\nconst actions = [];\nif (classification.category === 'Urgent Escalation') {\n  actions.push(`PRIORITY=HIGH alert sent to ${target.to}`);\n  actions.push(`Slack ${target.channel} pinged with @oncall`);\n} else if (classification.category === 'Unclear') {\n  actions.push(`Queued for human review at ${target.to}`);\n} else {\n  actions.push(`Forwarded to ${target.to} (Slack ${target.channel})`);\n}\nif (classification.confidence < 0.6 && classification.category !== 'Unclear') {\n  actions.push('Low-confidence flag set - secondary review by triage analyst');\n}\n\nconst needsDraft = ['Product Enquiry', 'Quote Follow-up'].includes(classification.category);\n\nreturn [{\n  json: {\n    id: originalEmail.id || 'email_1',\n    subject: originalEmail.subject || '',\n    body: originalEmail.body,\n    classification,\n    routing: { destination: target.to, channel: target.channel, actions },\n    needs_draft: needsDraft,\n    processed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse-route",
+      "name": "Parse + Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.classification.category }}",
+                    "rightValue": "Urgent Escalation",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "urgent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.needs_draft }}",
+                    "rightValue": true,
+                    "operator": { "type": "boolean", "operation": "true" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sales"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.classification.category }}",
+                    "rightValue": "Service Request",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "service"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.classification.category }}",
+                    "rightValue": "Unclear",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "unclear"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-category",
+      "name": "Switch by Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// In production: replace with real Slack webhook node.\nconst data = $input.first().json;\nconsole.log(`🚨 URGENT ALERT: ${data.subject}`);\nconsole.log(`Routed to: ${data.routing.destination}`);\nreturn [{ json: { ...data, alert_sent: true } }];"
+      },
+      "id": "urgent-alert",
+      "name": "Send Urgent Alert (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0.3,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": `Draft a short professional acknowledgement reply (3-4 sentences) to this customer email. Reference this specific item: ${$json.classification.fields.product_or_serial || 'the item referenced in your email'}. Confirm receipt, set expectation for next step. Do NOT commit to prices or dates. Sign off as 'Sales Team'. Plain text only.\\n\\nCustomer email:\\n\"\"\"\\n${$json.body}\\n\"\"\"`\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "id": "groq-draft",
+      "name": "Groq: Draft Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "groq-api-key",
+          "name": "Groq API Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge the draft reply back into the original payload.\nconst draftResp = $input.first().json;\nconst original = $('Parse + Route').first().json;\nconst draft = draftResp.choices?.[0]?.message?.content?.trim() || null;\nreturn [{ json: { ...original, draft_reply: draft } }];"
+      },
+      "id": "merge-draft",
+      "name": "Attach Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log(`🛠 SERVICE TICKET: ${data.subject}`);\nconsole.log(`Routed to: ${data.routing.destination}`);\nreturn [{ json: data }];"
+      },
+      "id": "service-ticket",
+      "name": "Service Ticket (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconsole.log(`❓ HUMAN REVIEW: ${data.subject}`);\nconsole.log(`Routed to: ${data.routing.destination}`);\nreturn [{ json: data }];"
+      },
+      "id": "human-review",
+      "name": "Human Review (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 720]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 460]
+    }
+  ],
+  "connections": {
+    "Webhook (Email In)": {
+      "main": [[{ "node": "Groq: Classify", "type": "main", "index": 0 }]]
+    },
+    "Groq: Classify": {
+      "main": [[{ "node": "Parse + Route", "type": "main", "index": 0 }]]
+    },
+    "Parse + Route": {
+      "main": [[{ "node": "Switch by Category", "type": "main", "index": 0 }]]
+    },
+    "Switch by Category": {
+      "main": [
+        [{ "node": "Send Urgent Alert (mock)", "type": "main", "index": 0 }],
+        [{ "node": "Groq: Draft Reply", "type": "main", "index": 0 }],
+        [{ "node": "Service Ticket (mock)", "type": "main", "index": 0 }],
+        [{ "node": "Human Review (mock)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Urgent Alert (mock)": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    },
+    "Groq: Draft Reply": {
+      "main": [[{ "node": "Attach Draft", "type": "main", "index": 0 }]]
+    },
+    "Attach Draft": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    },
+    "Service Ticket (mock)": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    },
+    "Human Review (mock)": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": { "templateId": "ai-email-triage" }
+}

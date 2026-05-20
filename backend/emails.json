@@ -1,0 +1,27 @@
+[
+  {
+    "id": "email_1",
+    "subject": "Product availability enquiry",
+    "body": "Hi, we're looking for a Fitting – SS, Male Elbow, 1/2in. Can you advise on availability and lead time?"
+  },
+  {
+    "id": "email_2",
+    "subject": "Technician required - Penang",
+    "body": "Our gauge installed last year is showing inconsistent readings. Serial number FC-2291. We need a technician on site ASAP, based in Penang."
+  },
+  {
+    "id": "email_3",
+    "subject": "Re: Quote QT-4821",
+    "body": "Just following up on quote QT-4821 we received 2 weeks ago. Has pricing changed? We're ready to proceed."
+  },
+  {
+    "id": "email_4",
+    "subject": "(no subject)",
+    "body": "Hello please call me back regarding your products thanks"
+  },
+  {
+    "id": "email_5",
+    "subject": "URGENT - production line down",
+    "body": "URGENT — production line down. The pressure relief valve you supplied last month has failed. Need emergency replacement or technician TODAY. Contact: Ahmad, 012-3456789"
+  }
+]

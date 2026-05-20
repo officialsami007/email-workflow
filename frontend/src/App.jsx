@@ -619,7 +619,6 @@ export default function App() {
             <p className="text-sm text-slate-700">
               Backend: Python, FastAPI, Groq SDK, Pydantic, Llama 3.3 70B.
               Frontend: React, Vite, Tailwind CSS.
-              No agent framework. The pipeline is straightforward enough that adding one would've just been extra complexity for no gain.
             </p>
           </Card>
         )}
